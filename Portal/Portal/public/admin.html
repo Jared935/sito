@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Panel administrativo</title>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f2f5f6;--sf:#fff;--tx:#12262b;--mu:#5c7178;--bd:#dbe4e7;--pr:#0f5560;--pr2:#e3f0f2;--on:#fff;--ac:#e8a93a;--ok:#1f7a4d;--okb:#e0f3e8;--bad:#b3342b;--badb:#fbe5e2}
+@media(prefers-color-scheme:dark){:root{--bg:#0d1a1d;--sf:#14262a;--tx:#e6eff1;--mu:#93a9af;--bd:#243a40;--pr:#5cc0cf;--pr2:#17353b;--on:#06242a;--ac:#f0b955;--ok:#6fd3a0;--okb:#143727;--bad:#f08b83;--badb:#3d1c1a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 Figtree,system-ui,sans-serif}
+button,input,select{font:inherit;color:inherit}button{cursor:pointer}
+:focus-visible{outline:3px solid var(--ac);outline-offset:2px}
+h1,h2,h3{margin:0;line-height:1.2}.hide{display:none!important}
+label{font-weight:600;font-size:13px;display:grid;gap:5px}
+input,select{padding:10px 12px;border:1px solid var(--bd);border-radius:10px;background:var(--sf);min-width:0}
+input:disabled{opacity:.65}
+.btn{background:var(--pr);color:var(--on);border:0;border-radius:10px;padding:10px 16px;font-weight:600}
+.btn.ghost{background:transparent;color:var(--pr);border:1px solid var(--bd)}
+.btn.danger{background:transparent;color:var(--bad);border:1px solid var(--bd)}
+.btn:disabled{opacity:.6}
+.err{color:var(--bad);font-size:13px;min-height:18px}.hint{color:var(--mu);font-size:13px}
+.msg{background:var(--okb);color:var(--ok);padding:12px 14px;border-radius:10px;margin-bottom:14px}
+.warn{background:var(--badb);color:var(--bad);padding:10px 12px;border-radius:10px;font-size:13px}
+#login{min-height:100vh;display:grid;place-content:center;padding:24px}
+#login form{width:min(380px,100%);display:grid;gap:12px}
+header{background:var(--sf);border-bottom:1px solid var(--bd);padding:12px clamp(16px,4vw,44px);display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+header .seal{width:38px;height:38px;border-radius:10px;background:var(--ac);display:grid;place-items:center;font-weight:700;color:#12262b}
+header b{margin-right:auto}
+.tabs{display:flex;gap:6px}
+.tabs button{border:1px solid var(--bd);background:var(--sf);border-radius:99px;padding:6px 16px;font-weight:600;color:var(--mu)}
+.tabs button.on{background:var(--pr);color:var(--on);border-color:var(--pr)}
+main{padding:24px clamp(16px,4vw,44px);max-width:1150px;margin:auto}
+h2{font-size:24px;margin-bottom:16px}
+.card{background:var(--sf);border:1px solid var(--bd);border-radius:14px;padding:18px;margin-bottom:14px}
+.grid{display:grid;gap:12px}.g3{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}.row>label{flex:1;min-width:150px}
+.stat b{display:block;font-size:30px;line-height:1.1}.stat span{color:var(--mu);font-size:13px}
+.wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:600px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--bd);white-space:nowrap}
+th{font-size:13px;color:var(--mu);font-weight:600}.n{text-align:center}
+td input[type=number]{width:68px;text-align:center;padding:6px}
+tr.go{cursor:pointer}tr.go:hover{background:var(--pr2)}
+.pill{display:inline-block;padding:2px 10px;border-radius:99px;font-size:12px;font-weight:700;background:var(--pr2);color:var(--pr)}
+.p-ok{background:var(--okb);color:var(--ok)}.p-bad{background:var(--badb);color:var(--bad)}
+</style>
+</head>
+<body>
+
+<section id="login">
+  <form id="lf">
+    <h1>Panel administrativo</h1>
+    <div class="warn hide" id="cfgw">Falta configurar Firebase. Pega tus datos en la constante CFG al inicio del script.</div>
+    <label>Correo<input id="em" type="email" autocomplete="username"></label>
+    <label>Contraseña<input id="pw" type="password" autocomplete="current-password"></label>
+    <div class="err" id="err" role="alert"></div>
+    <button class="btn" id="go">Entrar</button>
+  </form>
+</section>
+
+<div id="app" class="hide">
+  <header>
+    <div class="seal">UP</div><b>Panel administrativo</b>
+    <div class="tabs"><button id="t-lista" class="on">Alumnos</button><button id="t-nuevo">Nuevo alumno</button></div>
+    <button class="btn ghost" id="out">Cerrar sesión</button>
+  </header>
+  <main id="view"></main>
+</div>
+
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import{getAuth,signInWithEmailAndPassword,onAuthStateChanged,signOut,createUserWithEmailAndPassword,sendPasswordResetEmail}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import{getFirestore,doc,getDoc,updateDoc,writeBatch,collection,getDocs,addDoc,deleteDoc}from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// Pega aquí la MISMA configuración que usas en index.html
+const CFG={apiKey: "AIzaSyAyAOyGIUtX3T8eujaI3r6D7qaW8SdDJDY",
+  authDomain: "sito-15c41.firebaseapp.com",
+  projectId: "sito-15c41",
+  storageBucket: "sito-15c41.firebasestorage.app",
+  messagingSenderId: "725264507396",
+  appId: "1:725264507396:web:1ff17cbc1eb67cd8dd8b51",
+  measurementId: "G-7C1CES9L7B"};
+
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const DIAS=["Lunes","Martes","Miércoles","Jueves","Viernes"],HORAS=[7,8,9,10,11,12,13,14],MIN=7;
+const ok=!CFG.apiKey.startsWith("TU_");
+if(!ok)$("cfgw").classList.remove("hide");
+let app,auth,db,sauth;
+if(ok){app=initializeApp(CFG,"admin");auth=getAuth(app);db=getFirestore(app);sauth=getAuth(initializeApp(CFG,"sec"))}
+let A=[],sel=null,MAT=[],tab="lista",aviso="",q="",fc="";
+
+const normMat=s=>s.trim().replace(/[\/\s]/g,"").toUpperCase();
+const u3=m=>m.u||[null,null,null];
+const prom=a=>{const v=a.filter(x=>typeof x==="number");return v.length?v.reduce((s,x)=>s+x,0)/v.length:null};
+const f=x=>x==null?"—":x.toFixed(1);
+const MSG={"auth/email-already-in-use":"Ese correo ya tiene una cuenta.","auth/invalid-credential":"Correo o contraseña incorrectos.","auth/weak-password":"La contraseña debe tener al menos 6 caracteres.","auth/invalid-email":"Escribe un correo válido.","permission-denied":"Sin permiso. Revisa las reglas de Firestore y que tu cuenta esté en la colección admins.","mat":"Esa matrícula ya está registrada.","campos":"Completa nombre, matrícula, correo y contraseña."};
+const er=x=>MSG[x.code]||("Error: "+(x.code||x.message));
+
+/* ---------- Acceso ---------- */
+$("lf").onsubmit=async e=>{e.preventDefault();if(!ok)return;$("err").textContent="";$("go").disabled=true;
+ try{await signInWithEmailAndPassword(auth,$("em").value.trim(),$("pw").value)}catch(x){$("err").textContent=er(x)}$("go").disabled=false};
+if(ok)onAuthStateChanged(auth,async u=>{
+ if(!u){$("app").classList.add("hide");$("login").classList.remove("hide");$("pw").value="";return}
+ try{
+  if(!(await getDoc(doc(db,"admins",u.uid))).exists()){$("err").textContent="Esta cuenta no tiene permisos de administrador.";await signOut(auth);return}
+  await cargar();$("login").classList.add("hide");$("app").classList.remove("hide");pinta();
+ }catch(x){$("err").textContent=er(x);await signOut(auth)}});
+$("out").onclick=()=>signOut(auth);
+async function cargar(){const s=await getDocs(collection(db,"users"));A=s.docs.map(d=>({uid:d.id,...d.data()})).sort((a,b)=>(a.nombre||"").localeCompare(b.nombre||""))}
+const carreras=()=>[...new Set(A.map(a=>a.carrera).filter(Boolean))].sort();
+const dl=()=>`<datalist id="cr">${carreras().map(c=>`<option value="${esc(c)}">`).join("")}</datalist>`;
+
+/* ---------- Vistas ---------- */
+$("t-lista").onclick=()=>{tab="lista";sel=null;aviso="";pinta()};
+$("t-nuevo").onclick=()=>{tab="nuevo";sel=null;pinta()};
+function pinta(){
+ $("t-lista").classList.toggle("on",tab==="lista");$("t-nuevo").classList.toggle("on",tab==="nuevo");
+ $("view").innerHTML=sel?vDetalle():tab==="nuevo"?vNuevo():vLista()}
+
+function vLista(){
+ const cs=carreras();
+ return `${aviso?`<div class="msg" role="status">${aviso}</div>`:""}<h2>Alumnos</h2>
+ <div class="grid g3" style="margin-bottom:14px"><div class="card stat" style="margin:0"><b>${A.length}</b><span>Alumnos registrados</span></div><div class="card stat" style="margin:0"><b>${cs.length}</b><span>Carreras distintas</span></div><div class="card stat" style="margin:0"><b>${A.filter(a=>!a.carrera).length}</b><span>Sin carrera asignada</span></div></div>
+ <div class="card"><div class="row"><label>Buscar por matrícula, nombre o correo<input id="q" value="${esc(q)}" placeholder="Ej. 2024-0123"></label><label>Carrera<select id="fc"><option value="">Todas</option>${cs.map(c=>`<option ${c===fc?"selected":""}>${esc(c)}</option>`).join("")}</select></label></div></div>
+ <div class="card wrap" id="lista">${tabla()}</div>`}
+function tabla(){
+ const t=q.trim().toLowerCase(),L=A.filter(a=>(!fc||a.carrera===fc)&&(!t||[a.matricula,a.nombre,a.correo].some(x=>(x||"").toLowerCase().includes(t))));
+ return L.length?`<table><thead><tr><th>Matrícula</th><th>Nombre</th><th>Carrera</th><th class="n">Cuatrimestre</th><th>Grupo</th></tr></thead><tbody>${L.map(a=>`<tr class="go" tabindex="0" data-open="${a.uid}"><td><b>${esc(a.matricula)}</b></td><td>${esc(a.nombre)}</td><td>${esc(a.carrera)||'<span class="hint">Sin asignar</span>'}</td><td class="n">${esc(a.cuatrimestre)}</td><td>${esc(a.grupo)}</td></tr>`).join("")}</tbody></table>`:'<p class="hint">No hay alumnos que coincidan. Prueba con otra matrícula o agrega uno en "Nuevo alumno".</p>'}
+
+function vNuevo(){
+ return `<h2>Nuevo alumno</h2><form class="card" id="fn"><div class="row"><label>Nombre completo<input name="nombre" required></label><label>Matrícula<input name="mat" required></label><label>Correo<input name="correo" type="email" required></label></div>
+ <div class="row" style="margin-top:12px"><label>Carrera<input name="carrera" list="cr"></label><label>Cuatrimestre<input name="cuat" type="number" min="1" max="12" value="1"></label><label>Grupo<input name="grupo"></label><label>Teléfono<input name="tel"></label></div>
+ <div class="row" style="margin-top:12px"><label>Contraseña temporal<input name="pw" id="npw" required minlength="6"></label><button type="button" class="btn ghost" id="gen">Generar</button></div>
+ ${dl()}<div class="err" id="nerr" role="alert" style="margin-top:10px"></div><p class="hint">Comparte la matrícula (o correo) y la contraseña temporal con el alumno. Puede cambiarla desde "olvidé mi contraseña" o con el correo de restablecimiento.</p><button class="btn" id="nb">Crear alumno</button></form>`}
+
+function vDetalle(){
+ const s=sel,fin=prom(MAT.map(m=>prom(u3(m))).filter(x=>x!=null));
+ const rows=[...MAT].sort((a,b)=>a.c-b.c).map(m=>{const p=prom(u3(m));return`<tr><td class="n">${m.c}</td><td><b>${esc(m.n)}</b><br><small class="hint">${esc(m.p||"")}${m.d?" · "+m.d+" "+m.h:""}</small></td>${[0,1,2].map(i=>`<td class="n"><input type="number" min="0" max="10" step="0.1" data-id="${m.id}" data-k="u" data-i="${i}" value="${u3(m)[i]??""}" aria-label="Unidad ${i+1} de ${esc(m.n)}"></td>`).join("")}<td class="n"><b>${f(p)}</b></td><td class="n"><input type="number" min="0" data-id="${m.id}" data-k="as" value="${m.as||0}" aria-label="Asistencias"></td><td class="n"><input type="number" min="0" data-id="${m.id}" data-k="fa" value="${m.fa||0}" aria-label="Faltas"></td><td><button class="btn danger" data-del="${m.id}">Quitar</button></td></tr>`}).join("");
+ return `<p><button class="btn ghost" data-back>← Volver a la lista</button></p>${aviso?`<div class="msg" role="status">${aviso}</div>`:""}
+ <h2>${esc(s.nombre)} <span class="pill">${esc(s.matricula)}</span></h2>
+ <form class="card" id="fa"><div class="row"><label>Nombre<input name="nombre" value="${esc(s.nombre)}" required></label><label>Matrícula<input value="${esc(s.matricula)}" disabled></label><label>Correo<input value="${esc(s.correo)}" disabled></label></div>
+ <div class="row" style="margin-top:12px"><label>Carrera<input name="carrera" list="cr" value="${esc(s.carrera)}"></label><label>Cuatrimestre<input name="cuatrimestre" type="number" min="1" max="12" value="${esc(s.cuatrimestre)}"></label><label>Grupo<input name="grupo" value="${esc(s.grupo)}"></label><label>Teléfono<input name="telefono" value="${esc(s.telefono)}"></label></div>${dl()}
+ <p class="row" style="margin-top:14px"><button class="btn">Guardar datos</button><button type="button" class="btn ghost" data-reset>Enviar correo para restablecer contraseña</button></p></form>
+ <div class="card wrap"><div style="display:flex;justify-content:space-between;gap:10px"><h3>Materias y calificaciones</h3><span class="pill">Promedio general ${f(fin)}</span></div>${MAT.length?`<table><thead><tr><th class="n">Cuat.</th><th>Materia</th><th class="n">U1</th><th class="n">U2</th><th class="n">U3</th><th class="n">Prom.</th><th class="n">Asist.</th><th class="n">Faltas</th><th></th></tr></thead><tbody>${rows}</tbody></table>`:'<p class="hint">Este alumno aún no tiene materias. Agrega la primera abajo.</p>'}</div>
+ <form class="card" id="fm"><h3 style="margin-bottom:10px">Agregar materia</h3><div class="row"><label>Materia<input name="n" required></label><label>Profesor<input name="p"></label><label>Día<select name="d"><option value="">Sin horario</option>${DIAS.map(d=>`<option>${d}</option>`).join("")}</select></label><label>Hora<select name="h">${HORAS.map(h=>`<option>${h}:00</option>`).join("")}</select></label><label>Cuatrimestre<input name="c" type="number" min="1" max="12" value="${esc(s.cuatrimestre||1)}"></label><button class="btn">Agregar</button></div></form>`}
+
+/* ---------- Acciones ---------- */
+const mref=id=>doc(db,"users",sel.uid,"materias",id);
+async function abrir(uid){sel=A.find(a=>a.uid===uid);aviso="";
+ const s=await getDocs(collection(db,"users",uid,"materias"));MAT=s.docs.map(d=>({id:d.id,...d.data()}));pinta();scrollTo(0,0)}
+$("view").addEventListener("input",e=>{if(e.target.id==="q"){q=e.target.value;$("lista").innerHTML=tabla()}});
+$("view").addEventListener("change",async e=>{
+ const t=e.target;
+ if(t.id==="fc"){fc=t.value;$("lista").innerHTML=tabla();return}
+ if(!t.dataset.k)return;
+ const m=MAT.find(x=>x.id===t.dataset.id);let upd;
+ if(t.dataset.k==="u"){const u=[...u3(m)];u[+t.dataset.i]=t.value===""?null:Math.min(10,Math.max(0,+t.value));m.u=u;upd={u}}
+ else{m[t.dataset.k]=Math.max(0,Math.floor(+t.value||0));upd={[t.dataset.k]:m[t.dataset.k]}}
+ try{await updateDoc(mref(m.id),upd)}catch(x){alert(er(x))}pinta()});
+$("view").addEventListener("click",async e=>{
+ if(e.target.id==="gen"){$("npw").value=Array.from(crypto.getRandomValues(new Uint8Array(9)),b=>"abcdefghjkmnpqrstuvwxyz23456789"[b%31]).join("");return}
+ const row=e.target.closest("[data-open]");if(row){abrir(row.dataset.open);return}
+ const t=e.target.closest("button");if(!t)return;
+ try{
+  if("back"in t.dataset){sel=null;aviso="";pinta()}
+  if(t.dataset.del&&confirm("¿Quitar esta materia?")){await deleteDoc(mref(t.dataset.del));MAT=MAT.filter(x=>x.id!==t.dataset.del);pinta()}
+  if("reset"in t.dataset){await sendPasswordResetEmail(auth,sel.correo);aviso="Se envió el correo de restablecimiento a "+esc(sel.correo)+".";pinta()}
+ }catch(x){alert(er(x))}});
+$("view").addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.dataset.open)abrir(e.target.dataset.open)});
+$("view").addEventListener("submit",async e=>{
+ e.preventDefault();const fd=Object.fromEntries(new FormData(e.target)),id=e.target.id;
+ try{
+  if(id==="fn"){
+   $("nerr").textContent="";$("nb").disabled=true;
+   try{
+    const nombre=fd.nombre.trim(),mat=normMat(fd.mat),correo=fd.correo.trim().toLowerCase();
+    if(!nombre||!mat||!correo||fd.pw.length<6)throw{code:"campos"};
+    if((await getDoc(doc(db,"matriculas",mat))).exists())throw{code:"mat"};
+    const cr=await createUserWithEmailAndPassword(sauth,correo,fd.pw);await signOut(sauth);
+    const d={nombre,matricula:mat,correo,carrera:fd.carrera.trim(),cuatrimestre:+fd.cuat||1,grupo:fd.grupo.trim(),telefono:fd.tel.trim()};
+    const b=writeBatch(db);b.set(doc(db,"users",cr.user.uid),d);b.set(doc(db,"matriculas",mat),{correo,uid:cr.user.uid});await b.commit();
+    A.push({uid:cr.user.uid,...d});A.sort((a,b)=>(a.nombre||"").localeCompare(b.nombre||""));
+    tab="lista";q=mat;aviso=`Alumno creado: <b>${esc(nombre)}</b>. Matrícula ${esc(mat)} · contraseña temporal <b>${esc(fd.pw)}</b>.`;pinta();
+   }catch(x){$("nerr").textContent=er(x);$("nb").disabled=false}
+  }
+  if(id==="fa"){const d={nombre:fd.nombre.trim(),carrera:fd.carrera.trim(),cuatrimestre:+fd.cuatrimestre||1,grupo:fd.grupo.trim(),telefono:fd.telefono.trim()};
+   await updateDoc(doc(db,"users",sel.uid),d);Object.assign(sel,d);aviso="Datos guardados.";pinta()}
+  if(id==="fm"){const o={n:fd.n.trim(),p:fd.p.trim(),d:fd.d,h:fd.d?fd.h:"",c:+fd.c||1,u:[null,null,null],as:0,fa:0};
+   const r=await addDoc(collection(db,"users",sel.uid,"materias"),o);MAT.push({id:r.id,...o});aviso="";pinta()}
+ }catch(x){alert(er(x))}});
+</script>
+</body>
+</html>
