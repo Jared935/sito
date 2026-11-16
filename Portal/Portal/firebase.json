@@ -1,16 +1,6 @@
 {
-  "hosting": {
-    "public": "public",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**"
-    ],
-    "rewrites": [
-      {
-        "source": "**",
-        "destination": "/index.html"
-      }
-    ]
-  }
+  "hosting": [
+    { "target": "alumnos", "public": "public", "ignore": ["firebase.json", "**/.*", "**/node_modules/**"] },
+    { "target": "admin", "public": "admin-public", "ignore": ["firebase.json", "**/.*", "**/node_modules/**"] }
+  ]
 }
